@@ -1,0 +1,23 @@
+# Secretos: nunca se suben al repositorio
+.env
+.env.*
+!.env.example
+
+# Entorno virtual (se reconstruye con `uv sync`)
+.venv/
+
+# Archivos generados
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+dist/
+build/
+*.egg-info/
+
+# Editor y sistema operativo
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
