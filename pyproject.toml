@@ -7,7 +7,9 @@ dependencies = []
 
 [dependency-groups]
 dev = [
+    "mypy>=1.11",
     "pytest>=8.0",
+    "ruff>=0.6",
 ]
 
 [build-system]
@@ -19,3 +21,17 @@ packages = ["src/generador_turnos"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "C4", "PT", "RUF"]
+# Los mensajes y comentarios están en español y usan a propósito los signos
+# "×", "−" y "≥"; Ruff los marca como caracteres ambiguos (RUF001–RUF003).
+ignore = ["RUF001", "RUF002", "RUF003"]
+
+[tool.mypy]
+files = ["src"]
+strict = true
