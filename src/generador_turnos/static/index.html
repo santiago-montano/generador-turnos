@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Generador de turnos</title>
+<style>
+  :root {
+    --fondo: #f4f6f8; --tarjeta: #ffffff; --texto: #1c2733; --suave: #5b6b7b;
+    --borde: #d5dde5; --acento: #1f5f8b; --acento-texto: #ffffff;
+    --ok-fondo: #e2f4e8; --ok-texto: #17633a; --mal-fondo: #fde7e4; --mal-texto: #9b2c1f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --fondo: #12181f; --tarjeta: #1b242e; --texto: #e6edf3; --suave: #9fb0c0;
+      --borde: #32404e; --acento: #4a9fd4; --acento-texto: #0b1218;
+      --ok-fondo: #153524; --ok-texto: #8fdcae; --mal-fondo: #45201b; --mal-texto: #f5a99e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 16px; background: var(--fondo); color: var(--texto);
+    font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 720px; margin: 0 auto; }
+  h1 { font-size: 1.5rem; margin: 8px 0 4px; }
+  p.intro { color: var(--suave); margin: 0 0 16px; }
+  section {
+    background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 12px;
+    padding: 16px; margin-bottom: 16px;
+  }
+  label { display: block; font-weight: 600; font-size: .9rem; margin: 12px 0 4px; }
+  label:first-child { margin-top: 0; }
+  .ayuda { font-weight: 400; color: var(--suave); }
+  input, textarea, button {
+    font: inherit; color: inherit; width: 100%; padding: 10px 12px;
+    border: 1px solid var(--borde); border-radius: 8px; background: var(--fondo);
+  }
+  textarea { min-height: 132px; resize: vertical; }
+  .fila { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .casilla { display: flex; align-items: center; gap: 10px; margin-top: 14px; font-weight: 400; }
+  .casilla input { width: 20px; height: 20px; flex: none; }
+  button {
+    margin-top: 16px; background: var(--acento); color: var(--acento-texto);
+    border: 0; font-weight: 700; cursor: pointer;
+  }
+  button:disabled { opacity: .6; cursor: wait; }
+  .estado { padding: 10px 12px; border-radius: 8px; font-weight: 600; margin-bottom: 12px; }
+  .estado.ok { background: var(--ok-fondo); color: var(--ok-texto); }
+  .estado.mal { background: var(--mal-fondo); color: var(--mal-texto); }
+  table { width: 100%; border-collapse: collapse; font-size: .95rem; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--borde); vertical-align: top; }
+  th { color: var(--suave); font-size: .8rem; text-transform: uppercase; letter-spacing: .03em; }
+  td.turno { white-space: nowrap; font-weight: 600; width: 1%; }
+  .conteos { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .conteos span {
+    border: 1px solid var(--borde); border-radius: 999px; padding: 3px 10px; font-size: .85rem;
+  }
+  .detalle { color: var(--suave); font-size: .85rem; margin: 12px 0 0; }
+  [hidden] { display: none; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Generador de turnos</h1>
+  <p class="intro">Indique su equipo y las reglas. Un algoritmo genético busca un horario
+    en el que cada turno tenga personas distintas y nadie supere su máximo.</p>
+
+  <section>
+    <form id="formulario">
+      <label for="personas">Personas <span class="ayuda">(un nombre por línea)</span></label>
+      <textarea id="personas" required>Ana
+Luis
+Marta
+Pedro
+Sofía
+Camilo
+Laura</textarea>
+
+      <div class="fila">
+        <div>
+          <label for="dias">Días</label>
+          <input id="dias" type="number" min="1" max="7" value="7" required>
+        </div>
+        <div>
+          <label for="turnos_por_dia">Turnos por día</label>
+          <input id="turnos_por_dia" type="number" min="1" max="3" value="2" required>
+        </div>
+      </div>
+      <div class="fila">
+        <div>
+          <label for="personas_por_turno">Personas por turno</label>
+          <input id="personas_por_turno" type="number" min="1" max="10" value="3" required>
+        </div>
+        <div>
+          <label for="max_turnos_por_persona">Máximo por persona</label>
+          <input id="max_turnos_por_persona" type="number" min="1" max="21" value="6" required>
+        </div>
+      </div>
+
+      <label class="casilla">
+        <input id="evitar_turnos_consecutivos" type="checkbox">
+        Evitar que alguien trabaje dos turnos seguidos
+      </label>
+
+      <label for="clave">Clave de acceso</label>
+      <input id="clave" type="password" autocomplete="off" required>
+
+      <button id="boton" type="submit">Generar horario</button>
+    </form>
+  </section>
+
+  <section id="resultado" hidden>
+    <div id="estado" class="estado"></div>
+    <div id="contenido"></div>
+  </section>
+</main>
+
+<script>
+const formulario = document.getElementById("formulario");
+const boton = document.getElementById("boton");
+const resultado = document.getElementById("resultado");
+const estado = document.getElementById("estado");
+const contenido = document.getElementById("contenido");
+
+function entero(id) { return Number(document.getElementById(id).value); }
+
+function mostrarError(mensaje) {
+  estado.className = "estado mal";
+  estado.textContent = mensaje;
+  contenido.replaceChildren();
+  resultado.hidden = false;
+}
+
+function mensajeDeError(codigo, cuerpo) {
+  if (codigo === 401) return "Clave de acceso ausente o incorrecta.";
+  if (cuerpo && typeof cuerpo.detail === "string") return cuerpo.detail;
+  if (cuerpo && Array.isArray(cuerpo.detail)) {
+    return "Datos no válidos: " + cuerpo.detail.map(d => d.loc.slice(1).join(".") + " — " + d.msg).join("; ");
+  }
+  return "El servicio respondió con un error (" + codigo + ").";
+}
+
+function celda(etiqueta, texto, clase) {
+  const elemento = document.createElement(etiqueta);
+  elemento.textContent = texto;
+  if (clase) elemento.className = clase;
+  return elemento;
+}
+
+function mostrarHorario(datos) {
+  const v = datos.violaciones;
+  if (datos.valido) {
+    estado.className = "estado ok";
+    estado.textContent = "Horario válido: cumple todas las reglas.";
+  } else {
+    estado.className = "estado mal";
+    estado.textContent = "No se encontró un horario válido. Este es el mejor intento: " +
+      v.repeticiones + " repeticiones, " + v.excesos + " excesos, " + v.consecutivos + " turnos seguidos.";
+  }
+
+  const tabla = document.createElement("table");
+  const encabezado = tabla.createTHead().insertRow();
+  encabezado.append(celda("th", "Turno"), celda("th", "Personas"));
+  const cuerpo = tabla.createTBody();
+  for (const turno of datos.turnos) {
+    const fila = cuerpo.insertRow();
+    fila.append(celda("td", turno.nombre, "turno"), celda("td", turno.personas.join(", ")));
+  }
+
+  const conteos = document.createElement("div");
+  conteos.className = "conteos";
+  for (const [nombre, n] of Object.entries(datos.turnos_por_persona)) {
+    conteos.append(celda("span", nombre + ": " + n));
+  }
+
+  const detalle = celda("p",
+    "Generaciones: " + datos.generaciones + " · Reinicios: " + datos.reinicios +
+    " · Semilla: " + datos.semilla, "detalle");
+
+  contenido.replaceChildren(tabla, conteos, detalle);
+  resultado.hidden = false;
+  resultado.scrollIntoView({ behavior: "smooth" });
+}
+
+formulario.addEventListener("submit", async (evento) => {
+  evento.preventDefault();
+  const personas = document.getElementById("personas").value
+    .split("\n").map(nombre => nombre.trim()).filter(nombre => nombre.length > 0);
+  const solicitud = {
+    personas,
+    dias: entero("dias"),
+    turnos_por_dia: entero("turnos_por_dia"),
+    personas_por_turno: entero("personas_por_turno"),
+    max_turnos_por_persona: entero("max_turnos_por_persona"),
+    evitar_turnos_consecutivos: document.getElementById("evitar_turnos_consecutivos").checked,
+  };
+
+  boton.disabled = true;
+  boton.textContent = "Buscando horario…";
+  try {
+    const respuesta = await fetch("/horarios", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Clave-Acceso": document.getElementById("clave").value,
+      },
+      body: JSON.stringify(solicitud),
+    });
+    const cuerpo = await respuesta.json().catch(() => null);
+    if (respuesta.ok) mostrarHorario(cuerpo);
+    else mostrarError(mensajeDeError(respuesta.status, cuerpo));
+  } catch (error) {
+    mostrarError("No fue posible comunicarse con el servicio.");
+  } finally {
+    boton.disabled = false;
+    boton.textContent = "Generar horario";
+  }
+});
+</script>
+</body>
+</html>

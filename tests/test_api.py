@@ -33,6 +33,12 @@ def test_health_responde_sin_clave(cliente):
     assert respuesta.json()["estado"] == "ok"
 
 
+def test_la_pagina_principal_muestra_el_formulario(cliente):
+    respuesta = cliente.get("/")
+    assert respuesta.status_code == 200
+    assert "Generador de turnos" in respuesta.text
+
+
 @pytest.mark.parametrize("encabezado", [{}, {"X-Clave-Acceso": "clave-incorrecta"}])
 def test_rechaza_solicitudes_sin_la_clave_correcta(cliente, encabezado):
     respuesta = cliente.post("/horarios", json=SOLICITUD, headers=encabezado)

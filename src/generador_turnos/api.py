@@ -4,15 +4,19 @@ import secrets
 from collections import Counter
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from generador_turnos import __version__
 from generador_turnos.config import Configuracion, cargar_configuracion
 from generador_turnos.genetico import generar_horario
 from generador_turnos.horario import Problema, ProblemaInvalidoError, separar_turnos
+
+PAGINA = Path(__file__).parent / "static" / "index.html"
 
 
 @asynccontextmanager
@@ -80,6 +84,11 @@ def verificar_clave(
 def health() -> dict[str, str]:
     """Confirma que el servicio está listo. No requiere clave."""
     return {"estado": "ok", "version": __version__}
+
+
+@app.get("/", include_in_schema=False)
+def pagina_principal() -> FileResponse:
+    return FileResponse(PAGINA)
 
 
 @app.post("/horarios", dependencies=[Depends(verificar_clave)])
